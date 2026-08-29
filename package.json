@@ -1,0 +1,40 @@
+{
+  "name": "recoverai-monorepo",
+  "version": "1.0.0",
+  "description": "RecoverAI — Intelligent Payment Revenue Recovery Platform",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,magenta\" \"npm.cmd run dev:backend\" \"npm.cmd run dev:frontend\"",
+    "dev:backend": "npm.cmd --prefix backend run dev",
+    "dev:frontend": "npm.cmd --prefix frontend run dev",
+    "build:backend": "npm.cmd --prefix backend run build",
+    "build:frontend": "npm.cmd --prefix frontend run build",
+    "build": "npm.cmd run build:backend && npm.cmd run build:frontend",
+    "setup": "npm.cmd install && npm.cmd --prefix backend install && npm.cmd --prefix frontend install && npm.cmd run db:push && npm.cmd run db:seed",
+    "test": "npm.cmd --prefix backend run test",
+    "db:generate": "npx.cmd prisma generate",
+    "db:push": "npx.cmd prisma db push",
+    "db:seed": "npx.cmd ts-node prisma/seed.ts"
+  },
+  "keywords": [
+    "fintech",
+    "revenue-recovery",
+    "payments",
+    "ai",
+    "express",
+    "react",
+    "prisma"
+  ],
+  "author": "RecoverAI Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "concurrently": "^8.2.2",
+    "prisma": "^5.10.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.2"
+  }
+}

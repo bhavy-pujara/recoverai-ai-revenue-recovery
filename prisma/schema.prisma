@@ -1,0 +1,108 @@
+// RecoverAI Prisma Schema
+// Relational schema for AI Revenue Recovery platform
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Customer {
+  id                     String        @id @default(cuid())
+  name                   String
+  email                  String        @unique
+  phone                  String
+  lifetimeValue          Float         @default(0.0)
+  totalTransactions      Int           @default(0)
+  successfulTransactions Int           @default(0)
+  failedTransactions     Int           @default(0)
+  activityLevel          String        @default("MEDIUM") // HIGH, MEDIUM, LOW, DORMANT
+  subscriptionStatus     String        @default("ACTIVE") // ACTIVE, PAST_DUE, CHURNED, TRIAL
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  transactions           Transaction[]
+
+  @@index([email])
+  @@index([activityLevel])
+  @@index([subscriptionStatus])
+  @@index([lifetimeValue])
+}
+
+model Transaction {
+  id               String            @id @default(cuid())
+  transactionId    String            @unique
+  customerId       String
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount           Float
+  currency         String            @default("INR")
+  paymentMethod    String // UPI, CREDIT_CARD, DEBIT_CARD, NET_BANKING, WALLET
+  status           String // FAILED, RECOVERED, RETRYING, SCHEDULED, LOST, SUCCESS
+  failureReason    String // INSUFFICIENT_FUNDS, BANK_SERVER_DOWN, AUTH_FAILED, CARD_EXPIRED, GATEWAY_TIMEOUT, INVALID_CVV, FRAUD_SUSPECTED
+  failureCode      String // ERR_UPI_PSP_DOWN, ERR_CARD_DECLINED, ERR_INSUFFICIENT_BAL, etc.
+  failureCategory  String // TEMPORARY, CUSTOMER_ACTION, PAYMENT_METHOD, HIGH_RISK
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  recoveryAnalysis RecoveryAnalysis?
+  recoveryAttempts RecoveryAttempt[]
+
+  @@index([transactionId])
+  @@index([customerId])
+  @@index([status])
+  @@index([failureCategory])
+  @@index([paymentMethod])
+  @@index([createdAt])
+}
+
+model RecoveryAnalysis {
+  id                 String      @id @default(cuid())
+  transactionId      String      @unique
+  transaction        Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  recoveryScore      Float // 0 - 100
+  expectedRecovery   Float // amount * (recoveryScore / 100)
+  priority           String // CRITICAL, HIGH, MEDIUM, LOW
+  recommendedAction  String // RETRY_LATER, NOTIFY_CUSTOMER, ALT_PAYMENT_METHOD, MANUAL_REVIEW
+  recommendedChannel String // WHATSAPP, SMS, EMAIL, IN_APP, WEBHOOK
+  retryAfterHours    Int         @default(0)
+  customerValue      String // VIP, HIGH, MEDIUM, LOW
+  riskLevel          String // LOW, MEDIUM, HIGH, CRITICAL
+  explanation        String // Serialized JSON of factor breakdown, positive & negative factors
+  createdAt          DateTime    @default(now())
+
+  @@index([recoveryScore])
+  @@index([priority])
+  @@index([recommendedAction])
+  @@index([createdAt])
+}
+
+model RecoveryAttempt {
+  id              String      @id @default(cuid())
+  transactionId   String
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  action          String // SMART_RETRY, REMINDER_NOTIFICATION, SCHEDULED_RETRY, MANUAL_INTERVENTION
+  channel         String // DIRECT_RETRY, WHATSAPP, SMS, EMAIL, IN_APP
+  status          String // IN_PROGRESS, SUCCESS, FAILED, SCHEDULED
+  attemptedAt     DateTime    @default(now())
+  result          String // PAYMENT_CAPTURED, AUTH_EXPIRED, PENDING_CUSTOMER, DECLINED, etc.
+  recoveredAmount Float       @default(0.0)
+
+  @@index([transactionId])
+  @@index([status])
+  @@index([attemptedAt])
+}
+
+model StrategySimulation {
+  id               String   @id @default(cuid())
+  strategy         String // SMART_RETRY, CUSTOMER_REMINDER, ALT_PAYMENT, AI_DYNAMIC_ORCHESTRATION
+  transactionCount Int
+  expectedRecovery Float
+  recoveryRate     Float // percentage e.g. 78.5
+  estimatedCost    Float
+  roi              Float // e.g. 5.4x
+  createdAt        DateTime @default(now())
+
+  @@index([strategy])
+  @@index([createdAt])
+}
