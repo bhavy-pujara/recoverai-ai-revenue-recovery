@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Resolve project directories
-const dbDir = __dirname; // backend/src/db
+const dbDir = __dirname;
 const backendRoot = path.resolve(dbDir, '../..');
 const workspaceRoot = path.resolve(backendRoot, '..');
 
@@ -16,26 +16,38 @@ declare global {
   var prisma: PrismaClient | undefined;
 }
 
-// Ensure absolute database path
-const targetDbPath = path.join(workspaceRoot, 'prisma', 'dev.db');
+/**
+ * Computes database connection URL dynamically supporting:
+ * 1. Cloud PostgreSQL (Neon / Supabase / Render) in production via DATABASE_URL
+ * 2. Local SQLite in offline development (always resolved to absolute workspace path)
+ */
+function resolveDatabaseUrl(): string {
+  const rawUrl = process.env.DATABASE_URL;
 
-// If DATABASE_URL is set to a remote PostgreSQL URL, use it; otherwise use absolute SQLite path
-const dbUrl =
-  process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('postgres')
-    ? process.env.DATABASE_URL
-    : `file:${targetDbPath}`;
+  // Cloud PostgreSQL connection (Production on Vercel / Neon)
+  if (rawUrl && (rawUrl.startsWith('postgres://') || rawUrl.startsWith('postgresql://'))) {
+    return rawUrl;
+  }
+
+  // Absolute local SQLite path to prisma/dev.db
+  const absoluteDbPath = path.resolve(workspaceRoot, 'prisma', 'dev.db');
+  return `file:${absoluteDbPath}`;
+}
+
+const connectionUrl = resolveDatabaseUrl();
 
 export const prisma =
   global.prisma ||
   new PrismaClient({
     datasources: {
       db: {
-        url: dbUrl,
+        url: connectionUrl,
       },
     },
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
   });
 
+// Maintain singleton instance across serverless lambda cold starts & local hot reloads
 if (process.env.NODE_ENV !== 'production') {
   global.prisma = prisma;
 }

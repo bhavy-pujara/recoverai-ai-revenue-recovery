@@ -284,11 +284,10 @@ cp .env.example .env
 # On Windows (PowerShell / Command Prompt)
 copy .env.example .env
 ```
-*(Default configuration uses instant zero-config SQLite `file:./prisma/dev.db` for development, or configure standard PostgreSQL via `DATABASE_URL="postgresql://user:pass@localhost:5432/recoverai"`).*
 
-### 3. Initialize & Seed Database
+### 3. Initialize & Seed Database (Local SQLite)
 ```bash
-# Push Prisma schema and seed 33 authentic Indian customers & 130+ transactions
+# Push SQLite schema and seed 33 authentic Indian customers & 130+ transactions
 npm run db:push
 npm run db:seed
 ```
@@ -307,6 +306,36 @@ npm run dev:frontend
 ```
 
 Open **`http://localhost:5173`** in your browser.
+
+---
+
+## ☁️ Production Deployment on Vercel (with Neon PostgreSQL)
+
+RecoverAI supports a dual database architecture:
+* **Local Development**: SQLite (`prisma/schema.sqlite.prisma` $\rightarrow$ `prisma/dev.db`)
+* **Production**: Cloud PostgreSQL on Neon (`prisma/schema.prisma` $\rightarrow$ `DATABASE_URL`)
+
+### Step 1: Create a Free PostgreSQL Database on Neon
+1. Go to [Neon.tech](https://neon.tech) and create a free PostgreSQL project named `recoverai`.
+2. Copy your connection string (`postgresql://username:password@ep-xyz.neon.tech/recoverai?sslmode=require`).
+
+### Step 2: Seed the Production PostgreSQL Database
+In your local terminal:
+```bash
+# Temporarily set DATABASE_URL or put it in your .env
+export DATABASE_URL="postgresql://username:password@ep-xyz.neon.tech/recoverai?sslmode=require"
+
+# Push schema and seed production database with 33 Indian customers and 132 transactions
+npm run db:push:postgres
+npm run db:seed
+```
+
+### Step 3: Deploy to Vercel
+1. Import the repository into **Vercel** (`https://vercel.com`).
+2. Set the following **Environment Variables** in Vercel Project Settings:
+   * `DATABASE_URL`: Your Neon PostgreSQL connection string.
+   * `NODE_ENV`: `production`
+3. Click **Deploy**. Vercel will run `npm run vercel-build` and deploy the React frontend alongside the Express serverless API (`/api/*`).
 
 ---
 
