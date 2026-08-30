@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "RecoverAI — Intelligent Payment Revenue Recovery Platform",
   "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm --prefix backend run dev",
@@ -10,8 +14,8 @@
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
     "build": "npm run build:backend && npm run build:frontend",
-    "vercel-build": "prisma generate --schema=prisma/schema.prisma && npm --prefix backend run build && npm --prefix frontend run build",
-    "setup": "npm install && npm --prefix backend install && npm --prefix frontend install && npm --prefix frontend run db:push && npm run db:seed",
+    "vercel-build": "prisma generate --schema=prisma/schema.prisma && npm --prefix backend install && npm --prefix frontend install && npm --prefix backend run build && npm --prefix frontend run build",
+    "setup": "npm install && npm --prefix backend install && npm --prefix frontend install && npm --prefix backend run db:push && npm run db:seed",
     "test": "npm --prefix backend run test",
     "db:generate": "npx prisma generate",
     "db:push": "npx prisma db push",
