@@ -5,8 +5,9 @@ export class RecoveryController {
   static async retry(req: Request, res: Response, next: NextFunction) {
     try {
       const { transactionId } = req.params;
+      const id = Array.isArray(transactionId) ? transactionId[0] : transactionId;
       const { channel } = req.body;
-      const result = await RecoveryService.retryPayment(transactionId, channel);
+      const result = await RecoveryService.retryPayment(id, channel);
       return res.status(200).json({
         success: true,
         message: result.message,
@@ -20,8 +21,9 @@ export class RecoveryController {
   static async remind(req: Request, res: Response, next: NextFunction) {
     try {
       const { transactionId } = req.params;
+      const id = Array.isArray(transactionId) ? transactionId[0] : transactionId;
       const { channel } = req.body;
-      const result = await RecoveryService.sendReminder(transactionId, channel);
+      const result = await RecoveryService.sendReminder(id, channel);
       return res.status(200).json({
         success: true,
         message: result.message,
@@ -35,8 +37,9 @@ export class RecoveryController {
   static async schedule(req: Request, res: Response, next: NextFunction) {
     try {
       const { transactionId } = req.params;
+      const id = Array.isArray(transactionId) ? transactionId[0] : transactionId;
       const { scheduledHours } = req.body;
-      const result = await RecoveryService.scheduleRetry(transactionId, scheduledHours || 4);
+      const result = await RecoveryService.scheduleRetry(id, scheduledHours || 4);
       return res.status(200).json({
         success: true,
         message: result.message,
@@ -50,8 +53,9 @@ export class RecoveryController {
   static async markRecovered(req: Request, res: Response, next: NextFunction) {
     try {
       const { transactionId } = req.params;
+      const id = Array.isArray(transactionId) ? transactionId[0] : transactionId;
       const { amount } = req.body;
-      const result = await RecoveryService.markRecovered(transactionId, amount);
+      const result = await RecoveryService.markRecovered(id, amount);
       return res.status(200).json({
         success: true,
         message: result.message,
@@ -65,7 +69,8 @@ export class RecoveryController {
   static async markLost(req: Request, res: Response, next: NextFunction) {
     try {
       const { transactionId } = req.params;
-      const result = await RecoveryService.markLost(transactionId);
+      const id = Array.isArray(transactionId) ? transactionId[0] : transactionId;
+      const result = await RecoveryService.markLost(id);
       return res.status(200).json({
         success: true,
         message: result.message,
@@ -76,3 +81,4 @@ export class RecoveryController {
     }
   }
 }
+

@@ -18,14 +18,15 @@ export class SimulationController {
   static async getSimulationById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const result = await SimulationService.getSimulationById(id);
+      const simulationId = Array.isArray(id) ? id[0] : id;
+      const result = await SimulationService.getSimulationById(simulationId);
 
       if (!result) {
         return res.status(404).json({
           success: false,
           error: {
             code: 'SIMULATION_NOT_FOUND',
-            message: `Simulation with ID '${id}' was not found.`,
+            message: `Simulation with ID '${simulationId}' was not found.`,
           },
         });
       }

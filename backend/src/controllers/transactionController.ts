@@ -18,14 +18,15 @@ export class TransactionController {
   static async getTransactionById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const transaction = await TransactionService.getTransactionById(id);
+      const transactionId = Array.isArray(id) ? id[0] : id;
+      const transaction = await TransactionService.getTransactionById(transactionId);
 
       if (!transaction) {
         return res.status(404).json({
           success: false,
           error: {
             code: 'TRANSACTION_NOT_FOUND',
-            message: `Transaction with ID '${id}' was not found.`,
+            message: `Transaction with ID '${transactionId}' was not found.`,
           },
         });
       }

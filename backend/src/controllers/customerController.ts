@@ -18,14 +18,15 @@ export class CustomerController {
   static async getCustomerById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const customer = await CustomerService.getCustomerById(id);
+      const customerId = Array.isArray(id) ? id[0] : id;
+      const customer = await CustomerService.getCustomerById(customerId);
 
       if (!customer) {
         return res.status(404).json({
           success: false,
           error: {
             code: 'CUSTOMER_NOT_FOUND',
-            message: `Customer with ID '${id}' was not found.`,
+            message: `Customer with ID '${customerId}' was not found.`,
           },
         });
       }

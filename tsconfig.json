@@ -4,7 +4,16 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "strict": false,
+    "strict": true,
     "skipLibCheck": true
-  }
+  },
+  "include": [
+    "api/**/*",
+    "backend/src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "frontend",
+    "backend/src/tests"
+  ]
 }
