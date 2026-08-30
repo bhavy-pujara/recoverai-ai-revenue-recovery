@@ -80,7 +80,7 @@ export class StrategyService {
    */
   static async simulateStrategy(strategyCode: string, transactionCount: number = 500) {
     const strategies = await this.getStrategies();
-    const strategy = strategies.find((s) => s.code === strategyCode) || strategies[0];
+    const strategy = strategies.find((s: StrategyDefinition) => s.code === strategyCode) || strategies[0];
 
     const avgTicket = 4500;
     const totalVolume = transactionCount * avgTicket;

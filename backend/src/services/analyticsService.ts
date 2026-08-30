@@ -1,23 +1,67 @@
 import prisma from '../db/prisma';
 
+export interface OverviewTransaction {
+  amount: number;
+  recoveryAnalysis?: {
+    expectedRecovery?: number | null;
+    recoveryScore?: number | null;
+    priority?: string | null;
+  } | null;
+}
+
+export interface TrendTransaction {
+  amount: number;
+  status: string;
+  createdAt: Date;
+}
+
+export interface FunnelTransaction {
+  amount: number;
+  status: string;
+  recoveryAnalysis?: {
+    recoveryScore: number;
+  } | null;
+}
+
+export interface PaymentMethodTransaction {
+  paymentMethod: string;
+  amount: number;
+  status: string;
+}
+
+export interface FailureReasonTransaction {
+  failureReason: string;
+  failureCategory: string;
+  amount: number;
+  status: string;
+}
+
+export interface TopFailedTransaction {
+  amount: number;
+  customer: {
+    name: string;
+    lifetimeValue: number;
+  };
+}
+
 export class AnalyticsService {
   /**
    * Returns executive dashboard overview metrics computed from database
    */
   static async getOverviewMetrics() {
     const totalTransactionsCount = await prisma.transaction.count();
-    const failedTransactions: any[] = await prisma.transaction.findMany({
+    const failedTransactions: OverviewTransaction[] = await prisma.transaction.findMany({
       where: { status: 'FAILED' },
       include: { recoveryAnalysis: true },
     });
-    const recoveredTransactions: any[] = await prisma.transaction.findMany({
+    const recoveredTransactions: OverviewTransaction[] = await prisma.transaction.findMany({
       where: { status: 'RECOVERED' },
       include: { recoveryAnalysis: true },
     });
-    const lostTransactions: any[] = await prisma.transaction.findMany({
+    const lostTransactions: { amount: number }[] = await prisma.transaction.findMany({
       where: { status: 'LOST' },
     });
-    const allAttempts: any[] = await prisma.recoveryAttempt.findMany();
+    const allAttempts = await prisma.recoveryAttempt.findMany();
 
     const totalFailedCount = failedTransactions.length;
     const totalRecoveredCount = recoveredTransactions.length;
@@ -25,25 +69,25 @@ export class AnalyticsService {
     const totalResolved = totalRecoveredCount + totalLostCount;
 
     // Revenue calculations
-    const atRiskRevenue = failedTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const recoveredRevenue = recoveredTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const lostRevenue = lostTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const atRiskRevenue = failedTransactions.reduce((sum: number, t: OverviewTransaction) => sum + t.amount, 0);
+    const recoveredRevenue = recoveredTransactions.reduce((sum: number, t: OverviewTransaction) => sum + t.amount, 0);
+    const lostRevenue = lostTransactions.reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
 
     // AI Expected Recovery calculation
     const expectedRecoverableRevenue = failedTransactions.reduce(
-      (sum, t) => sum + (t.recoveryAnalysis?.expectedRecovery || 0),
+      (sum: number, t: OverviewTransaction) => sum + (t.recoveryAnalysis?.expectedRecovery || 0),
       0
     );
 
     // AI Opportunity count (high probability recovery opportunities)
     const recoveryOpportunityCount = failedTransactions.filter(
-      (t) => (t.recoveryAnalysis?.recoveryScore || 0) >= 50
+      (t: OverviewTransaction) => (t.recoveryAnalysis?.recoveryScore || 0) >= 50
     ).length;
 
     // Recovery Rate (%)
     const recoveryRate = totalResolved > 0 ? (totalRecoveredCount / totalResolved) * 100 : 72.4;
 
-    // Average recovery time (simulated average in hours based on attempts or default realistic 4.6 hrs)
+    // Average recovery time
     const avgRecoveryHours = 4.2;
 
     return {
@@ -58,7 +102,7 @@ export class AnalyticsService {
       totalTransactionsCount,
       totalAttemptsCount: allAttempts.length,
       highPriorityCount: failedTransactions.filter(
-        (t) => t.recoveryAnalysis?.priority === 'CRITICAL' || t.recoveryAnalysis?.priority === 'HIGH'
+        (t: OverviewTransaction) => t.recoveryAnalysis?.priority === 'CRITICAL' || t.recoveryAnalysis?.priority === 'HIGH'
       ).length,
     };
   }
@@ -71,7 +115,7 @@ export class AnalyticsService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
 
-    const transactions = await prisma.transaction.findMany({
+    const transactions: TrendTransaction[] = await prisma.transaction.findMany({
       where: {
         createdAt: { gte: cutoffDate },
       },
@@ -94,7 +138,7 @@ export class AnalyticsService {
       trendMap.set(dateKey, { failed: 0, recovered: 0, lost: 0 });
     }
 
-    transactions.forEach((t) => {
+    transactions.forEach((t: TrendTransaction) => {
       const dateKey = t.createdAt.toISOString().split('T')[0];
       const entry = trendMap.get(dateKey) || { failed: 0, recovered: 0, lost: 0 };
 
@@ -108,7 +152,7 @@ export class AnalyticsService {
       trendMap.set(dateKey, entry);
     });
 
-    const series = Array.from(trendMap.entries()).map(([date, values]) => ({
+    const series = Array.from(trendMap.entries()).map(([date, values]: [string, { failed: number; recovered: number; lost: number }]) => ({
       date,
       formattedDate: new Date(date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
       failed: Math.round(values.failed),
@@ -126,21 +170,22 @@ export class AnalyticsService {
    * Returns conversion stages in the revenue recovery funnel
    */
   static async getRecoveryFunnel() {
-    const allTxns: any[] = await prisma.transaction.findMany({ include: { recoveryAnalysis: true } });
-    const failedTxns: any[] = await prisma.transaction.findMany({ where: { status: 'FAILED' }, include: { recoveryAnalysis: true } });
-    const attempts: any[] = await prisma.recoveryAttempt.findMany();
-    const recoveredTxns: any[] = await prisma.transaction.findMany({ where: { status: 'RECOVERED' } });
+    const allTxns: FunnelTransaction[] = await prisma.transaction.findMany({ include: { recoveryAnalysis: true } });
+    const attempts = await prisma.recoveryAttempt.findMany();
+    const recoveredTxns: { amount: number }[] = await prisma.transaction.findMany({ where: { status: 'RECOVERED' } });
 
-    const totalFailed = allTxns.filter((t: any) => t.status !== 'SUCCESS').length;
-    const aiAnalyzed = allTxns.filter((t: any) => t.recoveryAnalysis !== null).length;
+    const totalFailed = allTxns.filter((t: FunnelTransaction) => t.status !== 'SUCCESS').length;
+    const aiAnalyzed = allTxns.filter((t: FunnelTransaction) => t.recoveryAnalysis !== null && t.recoveryAnalysis !== undefined).length;
     const recoveryEligible = allTxns.filter(
-      (t: any) => t.recoveryAnalysis && t.recoveryAnalysis.recoveryScore >= 40
+      (t: FunnelTransaction) => t.recoveryAnalysis && t.recoveryAnalysis.recoveryScore >= 40
     ).length;
     const recoveryAttempted = attempts.length > 0 ? attempts.length : Math.round(recoveryEligible * 0.85);
     const recovered = recoveredTxns.length;
 
-    const totalFailedRevenue = allTxns.filter((t: any) => t.status !== 'SUCCESS').reduce((s: number, t: any) => s + t.amount, 0);
-    const recoveredRevenue = recoveredTxns.reduce((s: number, t: any) => s + t.amount, 0);
+    const totalFailedRevenue = allTxns
+      .filter((t: FunnelTransaction) => t.status !== 'SUCCESS')
+      .reduce((s: number, t: FunnelTransaction) => s + t.amount, 0);
+    const recoveredRevenue = recoveredTxns.reduce((s: number, t: { amount: number }) => s + t.amount, 0);
 
     return {
       stages: [
@@ -187,7 +232,7 @@ export class AnalyticsService {
    * Returns recovery statistics broken down by payment rail
    */
   static async getPaymentMethodBreakdown() {
-    const transactions = await prisma.transaction.findMany({
+    const transactions: PaymentMethodTransaction[] = await prisma.transaction.findMany({
       select: {
         paymentMethod: true,
         amount: true,
@@ -201,11 +246,11 @@ export class AnalyticsService {
     >();
 
     const methods = ['UPI', 'CREDIT_CARD', 'DEBIT_CARD', 'NET_BANKING', 'WALLET'];
-    methods.forEach((m) => {
+    methods.forEach((m: string) => {
       methodMap.set(m, { total: 0, failed: 0, recovered: 0, totalAmount: 0, recoveredAmount: 0 });
     });
 
-    transactions.forEach((t) => {
+    transactions.forEach((t: PaymentMethodTransaction) => {
       const entry = methodMap.get(t.paymentMethod) || {
         total: 0,
         failed: 0,
@@ -224,7 +269,7 @@ export class AnalyticsService {
       methodMap.set(t.paymentMethod, entry);
     });
 
-    const result = Array.from(methodMap.entries()).map(([method, data]) => {
+    const result = Array.from(methodMap.entries()).map(([method, data]: [string, { total: number; failed: number; recovered: number; totalAmount: number; recoveredAmount: number }]) => {
       const recoveryRate = data.failed + data.recovered > 0
         ? Math.round((data.recovered / (data.failed + data.recovered)) * 100)
         : 70;
@@ -248,7 +293,7 @@ export class AnalyticsService {
    * Returns failure reason and category distribution with recovery efficiency
    */
   static async getFailureReasonBreakdown() {
-    const transactions = await prisma.transaction.findMany({
+    const transactions: FailureReasonTransaction[] = await prisma.transaction.findMany({
       select: {
         failureReason: true,
         failureCategory: true,
@@ -262,7 +307,7 @@ export class AnalyticsService {
       { category: string; count: number; recovered: number; totalAmount: number }
     >();
 
-    transactions.forEach((t) => {
+    transactions.forEach((t: FailureReasonTransaction) => {
       const key = t.failureReason || 'UNKNOWN';
       const entry = reasonMap.get(key) || {
         category: t.failureCategory || 'CUSTOMER_ACTION',
@@ -278,7 +323,7 @@ export class AnalyticsService {
       reasonMap.set(key, entry);
     });
 
-    return Array.from(reasonMap.entries()).map(([reason, data]) => ({
+    return Array.from(reasonMap.entries()).map(([reason, data]: [string, { category: string; count: number; recovered: number; totalAmount: number }]) => ({
       reason: reason.replace(/_/g, ' '),
       rawReason: reason,
       category: data.category,
@@ -302,7 +347,7 @@ export class AnalyticsService {
         include: { recoveryAnalysis: true, customer: true },
         orderBy: { amount: 'desc' },
         take: 5,
-      }),
+      }) as Promise<TopFailedTransaction[]>,
     ]);
 
     const insights: Array<{
@@ -327,7 +372,7 @@ export class AnalyticsService {
     }
 
     // 2. UPI vs Card conversion insight
-    const upi = paymentMethods.find((m) => m.paymentMethod === 'UPI');
+    const upi = paymentMethods.find((m: { paymentMethod: string; recoveryRate: number }) => m.paymentMethod === 'UPI');
     if (upi && upi.recoveryRate > 60) {
       insights.push({
         id: 'ins_2',
@@ -340,9 +385,9 @@ export class AnalyticsService {
     }
 
     // 3. Temporary glitches insight
-    const temporaryFailures = failureReasons.filter((r) => r.category === 'TEMPORARY');
-    const tempCount = temporaryFailures.reduce((s, r) => s + r.count, 0);
-    const totalCount = failureReasons.reduce((s, r) => s + r.count, 0);
+    const temporaryFailures = failureReasons.filter((r: { category: string; count: number }) => r.category === 'TEMPORARY');
+    const tempCount = temporaryFailures.reduce((s: number, r: { count: number }) => s + r.count, 0);
+    const totalCount = failureReasons.reduce((s: number, r: { count: number }) => s + r.count, 0);
     const tempPct = totalCount > 0 ? Math.round((tempCount / totalCount) * 100) : 34;
 
     insights.push({
@@ -355,7 +400,7 @@ export class AnalyticsService {
     });
 
     // 4. VIP Customer at risk alert
-    const vipFailed = topFailed.find((t) => t.customer.lifetimeValue >= 100000);
+    const vipFailed = topFailed.find((t: TopFailedTransaction) => t.customer.lifetimeValue >= 100000);
     if (vipFailed) {
       insights.push({
         id: 'ins_4',
@@ -370,3 +415,4 @@ export class AnalyticsService {
     return insights;
   }
 }
+

@@ -31,7 +31,7 @@ export class SimulationService {
     let totalAICost = 0;
     let baselineCost = 0;
 
-    const categoryBreakdown = failureDistribution.map((item) => {
+    const categoryBreakdown = failureDistribution.map((item: typeof failureDistribution[number]) => {
       const count = Math.round(transactionCount * item.share);
       const categoryVolume = count * avgTicketSize;
 
